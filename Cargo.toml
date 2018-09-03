@@ -1,0 +1,17 @@
+[package]
+name = "tetris"
+version = "0.1.0"
+authors = ["Anoop Naravaram <anoop901@gmail.com>"]
+
+[lib]
+name = "tetris"
+path = "src/tetris.rs"
+
+[[bin]]
+name = "tetris_cli"
+path = "src/main.rs"
+
+[dependencies]
+colored = "*"
+rand = "*"
+prettytable-rs = "*"
