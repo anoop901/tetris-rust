@@ -81,10 +81,8 @@ pub struct GameState {
     /// The bag for determining the next tetrominoes.
     bag: bag::Bag,
 
-    /// The next pieces that will drop.
     next_preview: Vec<TetrominoType>,
 
-    /// The held tetromino, if any
     held: Option<TetrominoType>
 }
 
@@ -130,14 +128,17 @@ impl GameState {
         return &self.placed_squares;
     }
 
+    /// A `Tetromino` object representing the currently falling tetromino.
     pub fn falling_tetromino(&self) -> &Tetromino {
         return &self.falling_tetromino
     }
 
+    /// The next pieces that will drop.
     pub fn next_preview(&self) -> &[TetrominoType] {
         return &self.next_preview.as_slice();
     }
 
+    /// The held tetromino, if any.
     pub fn held(&self) -> &Option<TetrominoType> {
         return &self.held;
     }
@@ -145,7 +146,7 @@ impl GameState {
     // Actions that can be made by the player
 
     /// Moves the currently falling piece down, due to gravity. Returns `true`
-    /// if the piece was moved successfully, or `false` if it hit the floor.
+    /// if the tetromino was moved successfully, or `false` if it hit the floor.
     pub fn apply_gravity(&mut self) -> bool {
 
         let new_center = (self.falling_tetromino.center.0,
@@ -154,6 +155,8 @@ impl GameState {
         self.move_tetromino_if_fits(new_center, orientation)
     }
 
+    /// Moves the current tetromino to the left, if it can. Returns `true` if
+    /// the tetromino was moved successfully, else returns `false`.
     pub fn move_left(&mut self) -> bool {
         let new_center = (self.falling_tetromino.center.0 - 1,
                             self.falling_tetromino.center.1);
@@ -161,47 +164,29 @@ impl GameState {
         self.move_tetromino_if_fits(new_center, orientation)
     }
 
+    /// Moves the current tetromino to the right, if it can. Returns `true` if
+    /// the tetromino was moved successfully, else returns `false`.
     pub fn move_right(&mut self) -> bool {
-        // try to move tetromino right by 1
         let new_center = (self.falling_tetromino.center.0 + 1,
                           self.falling_tetromino.center.1);
         let orientation = self.falling_tetromino.orientation;
         self.move_tetromino_if_fits(new_center, orientation)
     }
 
-    pub fn rotate_left(&mut self) {
+    /// Rotates the current tetromino counter-clockwise, if it can. All the
+    /// kicks specified in the SRS kick tables will be attempted. Returns `true`
+    /// if a rotation successfully occurred, else returns `false`.
+    pub fn rotate_left(&mut self) -> bool {
         let old_orientation = self.falling_tetromino.orientation;
-        self.rotate_to_orientation((old_orientation + 3) % 4);
+        self.rotate_to_orientation((old_orientation + 3) % 4)
     }
 
-    pub fn rotate_right(&mut self) {
+    /// Rotates the current tetromino clockwise, if it can. All the kicks
+    /// specified in the SRS kick tables will be attempted. Returns `true` if a
+    /// rotation successfully occurred, else returns `false`.
+    pub fn rotate_right(&mut self) -> bool {
         let old_orientation = self.falling_tetromino.orientation;
-        self.rotate_to_orientation((old_orientation + 1) % 4);
-    }
-
-    fn rotate_to_orientation(&mut self, new_orientation: u32) {
-        let old_orientation = self.falling_tetromino.orientation;
-        for offset_data in tetromino_data::tetromino_offset_data_from(&self.falling_tetromino.ttype) {
-
-            let offset = (
-                offset_data[old_orientation as usize].0 - offset_data[new_orientation as usize].0,
-                offset_data[old_orientation as usize].1 - offset_data[new_orientation as usize].1
-            );
-
-            let candidate_tetromino = Tetromino {
-                ttype: self.falling_tetromino.ttype.clone(),
-                center: (
-                    self.falling_tetromino.center.0 + offset.0,
-                    self.falling_tetromino.center.1 + offset.1,
-                ),
-                orientation: new_orientation,
-            };
-
-            if self.tetromino_fits(&candidate_tetromino) {
-                self.falling_tetromino = candidate_tetromino;
-                return;
-            }
-        }
+        self.rotate_to_orientation((old_orientation + 1) % 4)
     }
 
     pub fn hard_drop(&mut self) {
@@ -213,6 +198,7 @@ impl GameState {
         // TODO: this shouldn't be allowed twice in a row
         let new_held = self.falling_tetromino.ttype.clone();
         if let Some(ref old_held) = self.held {
+            // TODO: reuse this from initialization code
             self.falling_tetromino = Tetromino {
                 ttype: old_held.clone(),
                 center: (4, (MATRIX_HEIGHT - 2) as isize),
@@ -237,6 +223,7 @@ impl GameState {
         self.spawn_next_piece();
 
         // TODO: clear lines
+        // TODO: activate pending garbage lines
         // TODO: detect game over
     }
 
@@ -280,5 +267,31 @@ impl GameState {
             mino_position.1 < (MATRIX_HEIGHT as isize) &&
             self.placed_squares[mino_position.0 as usize][mino_position.1 as usize].is_none()
         })
+    }
+
+    fn rotate_to_orientation(&mut self, new_orientation: u32) -> bool {
+        let old_orientation = self.falling_tetromino.orientation;
+        for offset_data in tetromino_data::tetromino_offset_data_from(&self.falling_tetromino.ttype) {
+
+            let offset = (
+                offset_data[old_orientation as usize].0 - offset_data[new_orientation as usize].0,
+                offset_data[old_orientation as usize].1 - offset_data[new_orientation as usize].1
+            );
+
+            let candidate_tetromino = Tetromino {
+                ttype: self.falling_tetromino.ttype.clone(),
+                center: (
+                    self.falling_tetromino.center.0 + offset.0,
+                    self.falling_tetromino.center.1 + offset.1,
+                ),
+                orientation: new_orientation,
+            };
+
+            if self.tetromino_fits(&candidate_tetromino) {
+                self.falling_tetromino = candidate_tetromino;
+                return true;
+            }
+        }
+        false
     }
 }
