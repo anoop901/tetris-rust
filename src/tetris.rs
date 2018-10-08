@@ -52,6 +52,15 @@ impl Tetromino {
 
 impl Tetromino {
 
+    /// Creates a tetromino of the given type in spawn position.
+    pub fn new(tt: TetrominoType) -> Tetromino {
+        Tetromino {
+            ttype: tt,
+            center: (4, (MATRIX_HEIGHT - 2) as isize),
+            orientation: 0
+        }
+    }
+
     /// Returns the grid coordinates of the center of this tetromino.
     /// 
     /// The first index identifies the row, where 0 is the bottom row. The second
@@ -102,11 +111,7 @@ impl GameState {
 
         GameState {
             placed_squares: vec![vec![None; MATRIX_HEIGHT]; MATRIX_WIDTH],
-            falling_tetromino: Tetromino {
-                ttype: initial_falling_tetromino_type,
-                center: (4, (MATRIX_HEIGHT - 2) as isize),
-                orientation: 0
-            },
+            falling_tetromino: Tetromino::new(initial_falling_tetromino_type),
             bag: bag,
             next_preview: initial_next_preview,
             held: None
@@ -198,12 +203,7 @@ impl GameState {
         // TODO: this shouldn't be allowed twice in a row
         let new_held = self.falling_tetromino.ttype.clone();
         if let Some(ref old_held) = self.held {
-            // TODO: reuse this from initialization code
-            self.falling_tetromino = Tetromino {
-                ttype: old_held.clone(),
-                center: (4, (MATRIX_HEIGHT - 2) as isize),
-                orientation: 0
-            }
+            self.falling_tetromino = Tetromino::new(old_held.clone());
         } else {
             Some(self.falling_tetromino.ttype.clone());
             self.spawn_next_piece();
@@ -227,22 +227,16 @@ impl GameState {
         // TODO: detect game over
     }
 
+    // Helpers
+
     fn spawn_next_piece(&mut self) {
         
         // add a new item to the end of the preview
         self.next_preview.push(self.bag.draw());
 
-        // FIXME: reuse this from initialization code
         // spawn the next tetromino
-        self.falling_tetromino = Tetromino {
-            ttype: self.next_preview.remove(0),
-            center: (4, (MATRIX_HEIGHT - 2) as isize),
-            orientation: 0
-        }
-
+        self.falling_tetromino = Tetromino::new(self.next_preview.remove(0));
     }
-
-    // Helpers
 
     fn move_tetromino_if_fits(&mut self, new_center: (isize, isize), new_orientation: u32) -> bool {
         let candidate = Tetromino {
