@@ -1,3 +1,8 @@
+extern crate itertools;
+
+use std::collections::HashSet;
+use itertools::Itertools;
+
 pub mod bag;
 pub mod tetromino_data;
 
@@ -220,14 +225,45 @@ impl GameState {
             self.placed_squares[mino_position.0 as usize][mino_position.1 as usize] = Some(self.falling_tetromino.ttype.clone());
         });
 
+        self.clear_lines();
+
         self.spawn_next_piece();
 
-        // TODO: clear lines
         // TODO: activate pending garbage lines
         // TODO: detect game over
     }
 
     // Helpers
+
+    /// Clears any full lines that are on the matrix, then moves the above lines
+    /// down.
+    fn clear_lines(&mut self) {
+        let mut num_cleared_rows = 0;
+
+        // Write the contents of each row into the below row into which it fell. num_cleared_rows
+        // keeps track of how many rows to move down.
+        for row in 0..MATRIX_HEIGHT {
+            let row_filled = (0..MATRIX_WIDTH).all(|col| {
+                self.placed_squares[col][row].is_some()
+            });
+            if row_filled {
+                // This row is filled, it will be overwritten by a higher row.
+                num_cleared_rows += 1;
+            } else {
+                // Write this row num_cleared_rows below.
+                for col in 0..MATRIX_WIDTH {
+                    self.placed_squares[col][row - num_cleared_rows] = self.placed_squares[col][row].clone();
+                }
+            }
+        }
+
+        // Empty the top num_cleared_rows rows.
+        for row in MATRIX_HEIGHT-num_cleared_rows..MATRIX_HEIGHT {
+            for col in 0..MATRIX_WIDTH {
+                self.placed_squares[col][row] = None;
+            }
+        }
+    }
 
     fn spawn_next_piece(&mut self) {
         
