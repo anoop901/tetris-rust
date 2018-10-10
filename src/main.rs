@@ -18,7 +18,7 @@ use std::io::BufRead;
 // }
 
 
-fn print_game_state(gs: &tetris::GameState) {
+fn print_game_state(gs: &tetris::game_state::GameState) {
 
     let hold_display = render_hold_display(gs);
     let matrix_display = render_matrix_display(gs);
@@ -33,7 +33,7 @@ fn print_game_state(gs: &tetris::GameState) {
     table.printstd();
 }
 
-fn render_hold_display(gs: &tetris::GameState) -> prettytable::Table {
+fn render_hold_display(gs: &tetris::game_state::GameState) -> prettytable::Table {
     let mut hold_table = table![
         ["HOLD:"],
         [table![[
@@ -50,7 +50,7 @@ fn render_hold_display(gs: &tetris::GameState) -> prettytable::Table {
     hold_table
 }
 
-fn render_matrix_display(gs: &tetris::GameState) -> prettytable::Table {
+fn render_matrix_display(gs: &tetris::game_state::GameState) -> prettytable::Table {
     let mut squares_to_print = gs.placed_squares().clone();
 
     let falling_tetromino = gs.falling_tetromino();
@@ -62,10 +62,10 @@ fn render_matrix_display(gs: &tetris::GameState) -> prettytable::Table {
 
     let mut matrix_display: String = String::new();
 
-    for ii in 0..tetris::MATRIX_HEIGHT - 2 {
-        let i = tetris::MATRIX_HEIGHT - 3 - ii;
+    for ii in 0..tetris::game_state::MATRIX_HEIGHT - 2 {
+        let i = tetris::game_state::MATRIX_HEIGHT - 3 - ii;
         matrix_display.push_str(" ");
-        for j in 0..tetris::MATRIX_WIDTH {
+        for j in 0..tetris::game_state::MATRIX_WIDTH {
             let c = if let Some(/*ref tt*/_) = squares_to_print[j][i] {
                 format!("{}", "▣ "/*.color(tetromino_type_to_color(&tt))*/)
             } else { format!("{}",  "· "/*.white()*/) };
@@ -77,7 +77,7 @@ fn render_matrix_display(gs: &tetris::GameState) -> prettytable::Table {
     table![[matrix_display]]
 }
 
-fn render_next_preview(gs: &tetris::GameState) -> prettytable::Table {
+fn render_next_preview(gs: &tetris::game_state::GameState) -> prettytable::Table {
 
     let next_preview = gs.next_preview();
 
@@ -132,7 +132,7 @@ fn render_tetromino(tt: &tetris::TetrominoType) -> String {
 fn main() {
 
     let stdin = std::io::stdin();
-    let mut gs = tetris::GameState::new();
+    let mut gs = tetris::game_state::GameState::new();
 
     print_game_state(&gs);
     println!("");

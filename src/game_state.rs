@@ -1,10 +1,7 @@
 extern crate itertools;
 
-use std::collections::HashSet;
-use itertools::Itertools;
-
-pub mod bag;
-pub mod tetromino_data;
+use ::bag;
+use ::tetromino_data;
 
 // TODO: make these constants configurable at runtime
 
@@ -16,15 +13,11 @@ pub const MATRIX_WIDTH: usize = 10;
 /// Height of the play field (both visible and hidden parts).
 pub const MATRIX_HEIGHT: usize = 22;
 
-/// Identifies one of the 7 types of tetrominoes
-#[derive(Clone, Debug)]
-pub enum TetrominoType { I, O, T, J, L, S, Z, }
-
 /// Describes a tetromino of some type at some position and orientation on the
 /// matrix.
 #[derive(Debug, Clone)]
 pub struct Tetromino {
-    ttype: TetrominoType,
+    ttype: ::TetrominoType,
     center: (isize, isize),
     orientation: u32
 }
@@ -58,7 +51,7 @@ impl Tetromino {
 impl Tetromino {
 
     /// Creates a tetromino of the given type in spawn position.
-    pub fn new(tt: TetrominoType) -> Tetromino {
+    pub fn new(tt: ::TetrominoType) -> Tetromino {
         Tetromino {
             ttype: tt,
             center: (4, (MATRIX_HEIGHT - 2) as isize),
@@ -75,7 +68,7 @@ impl Tetromino {
     }
 
     /// Returns the type of tetromino.
-    pub fn ttype(&self) -> &TetrominoType {
+    pub fn ttype(&self) -> &::TetrominoType {
         return &self.ttype;
     }
 
@@ -88,16 +81,16 @@ impl Tetromino {
 /// as 0. Coordinates are specified as (col, row).
 #[derive(Debug)]
 pub struct GameState {
-    placed_squares: Vec<Vec<Option<TetrominoType>>>,
+    placed_squares: Vec<Vec<Option<::TetrominoType>>>,
 
     falling_tetromino: Tetromino,
 
     /// The bag for determining the next tetrominoes.
     bag: bag::Bag,
 
-    next_preview: Vec<TetrominoType>,
+    next_preview: Vec<::TetrominoType>,
 
-    held: Option<TetrominoType>
+    held: Option<::TetrominoType>
 }
 
 impl GameState {
@@ -126,7 +119,7 @@ impl GameState {
     // Getters
 
     /// Returns a representation of all the squares that have previously been
-    /// placed the matrix. It is expressed as a `Vec<Vec<Option<TetrominoType>>>`
+    /// placed the matrix. It is expressed as a `Vec<Vec<Option<::TetrominoType>>>`
     /// where:
     ///
     /// - `placed_squares[i][j] == Some(tt)` indicates that there has been a
@@ -134,7 +127,7 @@ impl GameState {
     ///   of type `tt`.
     /// - `placed_squares[i][j] == None` indicates that there has not been any
     ///   square placed at coordinates (`i`, `j`).
-    pub fn placed_squares(&self) -> &Vec<Vec<Option<TetrominoType>>> {
+    pub fn placed_squares(&self) -> &Vec<Vec<Option<::TetrominoType>>> {
         return &self.placed_squares;
     }
 
@@ -144,12 +137,12 @@ impl GameState {
     }
 
     /// The next pieces that will drop.
-    pub fn next_preview(&self) -> &[TetrominoType] {
+    pub fn next_preview(&self) -> &[::TetrominoType] {
         return &self.next_preview.as_slice();
     }
 
     /// The held tetromino, if any.
-    pub fn held(&self) -> &Option<TetrominoType> {
+    pub fn held(&self) -> &Option<::TetrominoType> {
         return &self.held;
     }
 

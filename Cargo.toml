@@ -5,7 +5,7 @@ authors = ["Anoop Naravaram <anoop901@gmail.com>"]
 
 [lib]
 name = "tetris"
-path = "src/tetris.rs"
+path = "src/lib.rs"
 
 [[bin]]
 name = "tetris_cli"
