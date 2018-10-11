@@ -163,16 +163,36 @@ fn render_tetromino(tt: &tetris::TetrominoType) -> String {
     tetromino_display
 }
 
+fn print_help() {
+    println!("Available commands: ");
+    let mut table = table![
+        ["?", "print this help"],
+        ["[empty]", "advance time by 150 ms"],
+        ["l", "move left"],
+        ["r", "move right"],
+        ["rl", "rotate left"],
+        ["rr", "rotate right"],
+        ["hd", "hard drop"],
+        ["h", "hold"]
+    ];
+    table.set_format(*prettytable::format::consts::FORMAT_CLEAN);
+    table.printstd();
+}
+
 fn main() {
 
     let stdin = std::io::stdin();
     let mut tgs = tetris::game_state::TimedGameState::new();
 
+    print_help();
+
     print_timed_game_state(&tgs);
     println!("");
     // TODO: proper error handling
     for line in stdin.lock().lines().map(|l| l.unwrap()) {
+        let mut should_print_help = false;
         let continue_game = match line.as_str() {
+            "?" => { should_print_help = true; true }
             "" => { tgs.advance_time(150) }
             "l" => { tgs.move_left(); true }
             "r" => { tgs.move_right(); true }
@@ -182,7 +202,11 @@ fn main() {
             "h" => { tgs.hold(); true }
             _ => { println!("unknown command"); true }
         };
-        print_timed_game_state(&tgs);
+        if should_print_help {
+            print_help();
+        } else {
+            print_timed_game_state(&tgs);
+        }
 
         if !continue_game {
             println!("GAME OVER");
