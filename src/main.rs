@@ -18,20 +18,20 @@ use std::io::BufRead;
 // }
 
 
-fn print_game_state(gs: &tetris::game_state::GameState) {
-
-    let hold_display = render_hold_display(gs);
-    let matrix_display = render_matrix_display(gs);
-    let piece_queue_display = render_next_preview(gs);
-
-    let mut table = table![
-        [hold_display, matrix_display, piece_queue_display]
-    ];
-
-    table.set_format(*prettytable::format::consts::FORMAT_CLEAN);
-
-    table.printstd();
-}
+//fn print_game_state(gs: &tetris::game_state::GameState) {
+//
+//    let hold_display = render_hold_display(gs);
+//    let matrix_display = render_matrix_display(gs);
+//    let piece_queue_display = render_next_preview(gs);
+//
+//    let mut table = table![
+//        [hold_display, matrix_display, piece_queue_display]
+//    ];
+//
+//    table.set_format(*prettytable::format::consts::FORMAT_CLEAN);
+//
+//    table.printstd();
+//}
 
 fn print_timed_game_state(tgs: &tetris::game_state::TimedGameState) {
 
