@@ -228,6 +228,20 @@ impl GameState {
 
     // Helpers
 
+    /// Returns `true` if the current tetromino has space under it to fall into, or
+    /// `false` otherwise.
+    fn would_fit_after_gravity(&self) -> bool {
+        let new_center = (self.falling_tetromino.center.0,
+                          self.falling_tetromino.center.1 - 1);
+        let orientation = self.falling_tetromino.orientation;
+        let candidate = Tetromino{
+            ttype: self.falling_tetromino.ttype.clone(),
+            center: new_center,
+            orientation: orientation
+        };
+        self.tetromino_fits(&candidate)
+    }
+
     /// Clears any full lines that are on the matrix, then moves the above lines
     /// down.
     fn clear_lines(&mut self) {
@@ -316,5 +330,214 @@ impl GameState {
             }
         }
         false
+    }
+}
+
+/// Number of milliseconds it takes for a tetromino to go down by 1 space.
+pub const FALL_INTERVAL: u32 = 500;
+/// Number of milliseconds a tetromino spends on the ground until it is forced to lock.
+pub const LOCK_INTERVAL: u32 = 1000;
+
+/// Describes what the current tetromino is doing.
+pub enum TimeStateAction {
+    /// The current tetromino is falling, and there are `time_to_fall` milliseconds until it falls
+    /// one more space.
+    Falling { time_to_fall: u32 },
+    /// The current tetromino is on the ground, and it is waiting to get locked.
+    Locking
+}
+
+/// The timing state of a tetris game.
+pub struct TimeState {
+    /// The `TimeStateAction` describing the current tetromino.
+    pub action: TimeStateAction,
+    /// The remaining number of milliseconds the current tetromino can spend on the ground
+    /// before it is forced to lock.
+    pub time_to_lock: u32
+}
+
+/// Describes the state of a tetris game, with timing information.
+pub struct TimedGameState {
+    game_state: GameState,
+    time_state: TimeState
+}
+
+impl TimedGameState {
+
+    /// Create a new `TimedGameState` corresponding to the initial state of a timed tetris game.
+    pub fn new() -> Self {
+        let mut tgs = TimedGameState {
+            game_state: GameState::new(),
+            time_state: TimeState {
+                action: TimeStateAction::Falling {
+                    time_to_fall: FALL_INTERVAL
+                },
+                time_to_lock: LOCK_INTERVAL
+            }
+        };
+        tgs.update_time_state();
+
+        tgs
+    }
+
+    // Getters
+
+    /// Returns the underlying `GameState`.
+    pub fn game_state(&self) -> &GameState {
+        &self.game_state
+    }
+
+    /// Returns the timing information describing the current state.
+    pub fn time_state(&self) -> &TimeState {
+        &self.time_state
+    }
+
+    // Getters for fields within the underlying GameState
+
+    /// Returns a representation of all the squares that have previously been
+    /// placed the matrix. It is expressed as a `Vec<Vec<Option<::TetrominoType>>>`
+    /// where:
+    ///
+    /// - `placed_squares[i][j] == Some(tt)` indicates that there has been a
+    ///   square placed at coordinates (`i`, `j`), which came from a tetromino
+    ///   of type `tt`.
+    /// - `placed_squares[i][j] == None` indicates that there has not been any
+    ///   square placed at coordinates (`i`, `j`).
+    pub fn placed_squares(&self) -> &Vec<Vec<Option<::TetrominoType>>> {
+        return self.game_state.placed_squares();
+    }
+
+    /// A `Tetromino` object representing the currently falling tetromino.
+    pub fn falling_tetromino(&self) -> &Tetromino {
+        return self.game_state.falling_tetromino();
+    }
+
+    /// The next pieces that will drop.
+    pub fn next_preview(&self) -> &[::TetrominoType] {
+        return self.game_state.next_preview();
+    }
+
+    /// The held tetromino, if any.
+    pub fn held(&self) -> &Option<::TetrominoType> {
+        return self.game_state.held();
+    }
+
+    // Actions passed through to the underlying `GameState`. These also update the `TimeState`
+    // accordingly.
+
+    /// Moves the current tetromino to the left, if it can. Returns `true` if
+    /// the tetromino was moved successfully, else returns `false`.
+    pub fn move_left(&mut self) -> bool {
+        let r = self.game_state.move_left();
+        self.update_time_state();
+        r
+    }
+
+    /// Moves the current tetromino to the right, if it can. Returns `true` if
+    /// the tetromino was moved successfully, else returns `false`.
+    pub fn move_right(&mut self) -> bool {
+        let r = self.game_state.move_right();
+        self.update_time_state();
+        r
+    }
+
+    /// Rotates the current tetromino counter-clockwise, if it can. All the
+    /// kicks specified in the SRS kick tables will be attempted. Returns `true`
+    /// if a rotation successfully occurred, else returns `false`.
+    pub fn rotate_left(&mut self) -> bool {
+        let r = self.game_state.rotate_left();
+        self.update_time_state();
+        r
+    }
+
+    /// Rotates the current tetromino clockwise, if it can. All the kicks
+    /// specified in the SRS kick tables will be attempted. Returns `true` if a
+    /// rotation successfully occurred, else returns `false`.
+    pub fn rotate_right(&mut self) -> bool {
+        let r = self.game_state.rotate_right();
+        self.update_time_state();
+        r
+    }
+
+    pub fn hard_drop(&mut self) {
+        self.game_state.hard_drop();
+        self.time_state.time_to_lock = LOCK_INTERVAL;
+        self.update_time_state();
+    }
+
+    pub fn hold(&mut self) {
+        self.game_state.hold();
+        self.time_state.time_to_lock = LOCK_INTERVAL;
+        self.update_time_state();
+    }
+
+    // Time-related functions
+
+    /// Advance the tetris game by the given number of milliseconds, assuming no inputs are given
+    /// during this period.
+    pub fn advance_time(&mut self, t: u32) {
+
+        let mut remaining = t;
+
+        while remaining > 0 {
+            match self.time_state.action {
+                TimeStateAction::Falling{ ref mut time_to_fall } => {
+                    if remaining < *time_to_fall {
+                        // Not time to fall yet
+                        *time_to_fall -= remaining;
+                        // Ran out of time to advance, so end loop
+                        break;
+                    } else {
+                        // Fall in time_to_fall milliseconds
+                        self.game_state.apply_gravity();
+
+                        // Handle remaining time in next loop
+                        remaining -= *time_to_fall;
+
+                        // Reset time_to_fall for next fall cycle
+                        *time_to_fall = FALL_INTERVAL;
+                    }
+                },
+                TimeStateAction::Locking => {
+                    if remaining < self.time_state.time_to_lock {
+                        // Not time to lock yet
+                        self.time_state.time_to_lock -= remaining;
+                        // Ran out of time to advance, so end loop
+                        break;
+                    } else {
+                        // Lock in time_to_lock milliseconds, spawning next piece
+                        self.game_state.lock_piece();
+
+                        // Handle remaining time in next loop
+                        remaining -= self.time_state.time_to_lock;
+
+                        // Reset time_to_lock for next piece
+                        self.time_state.time_to_lock = LOCK_INTERVAL;
+                    }
+                }
+            };
+
+            self.update_time_state();
+        }
+    }
+
+    /// Adjusts the time state after a change in the game state.
+    ///
+    /// The time state action must be TimeStateAction::Falling if the current tetromino is off
+    /// the ground, or TimeStateAction::Locking if it is. This function must be called by the
+    /// `TimedGameState` implementation to update the `TimeState` whenever a change to the game
+    /// state might have caused a change in this condition.
+    fn update_time_state(&mut self) {
+        if self.game_state.would_fit_after_gravity() {
+            if let TimeStateAction::Locking = self.time_state.action {
+                // Start a new cycle of falling
+                self.time_state.action = TimeStateAction::Falling {
+                    time_to_fall: FALL_INTERVAL
+                };
+            }
+        } else {
+            // Start/resume locking
+            self.time_state.action = TimeStateAction::Locking;
+        }
     }
 }

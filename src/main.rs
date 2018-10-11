@@ -33,6 +33,40 @@ fn print_game_state(gs: &tetris::game_state::GameState) {
     table.printstd();
 }
 
+fn print_timed_game_state(tgs: &tetris::game_state::TimedGameState) {
+
+
+    let gs = tgs.game_state();
+    let hold_display = render_hold_display(gs);
+    let matrix_display = render_matrix_display(gs);
+    let piece_queue_display = render_next_preview(gs);
+    let time_display = render_time_display(tgs);
+
+    let mut table = table![
+        [hold_display, matrix_display, piece_queue_display, time_display]
+    ];
+
+    table.set_format(*prettytable::format::consts::FORMAT_CLEAN);
+
+    table.printstd();
+}
+
+fn render_time_display(tgs: &tetris::game_state::TimedGameState) -> prettytable::Table {
+
+    let time_state = tgs.time_state();
+    let mut table = table![
+        ["time to lock", format!("{} ms", time_state.time_to_lock)],
+        ["time to fall", match time_state.action {
+            tetris::game_state::TimeStateAction::Falling{time_to_fall} => format!("{} ms", time_to_fall),
+            tetris::game_state::TimeStateAction::Locking => format!("---")
+        }]
+    ];
+
+    table.set_format(*prettytable::format::consts::FORMAT_CLEAN);
+
+    table
+}
+
 fn render_hold_display(gs: &tetris::game_state::GameState) -> prettytable::Table {
     let mut hold_table = table![
         ["HOLD:"],
@@ -132,23 +166,23 @@ fn render_tetromino(tt: &tetris::TetrominoType) -> String {
 fn main() {
 
     let stdin = std::io::stdin();
-    let mut gs = tetris::game_state::GameState::new();
+    let mut tgs = tetris::game_state::TimedGameState::new();
 
-    print_game_state(&gs);
+    print_timed_game_state(&tgs);
     println!("");
     // TODO: proper error handling
     for line in stdin.lock().lines().map(|l| l.unwrap()) {
         match line.as_str() {
-            "" => { gs.apply_gravity(); }
-            "l" => { gs.move_left(); }
-            "r" => { gs.move_right(); }
-            "rl" => { gs.rotate_left(); }
-            "rr" => { gs.rotate_right(); }
-            "hd" => { gs.hard_drop(); }
-            "h" => { gs.hold(); }
+            "" => { tgs.advance_time(150); }
+            "l" => { tgs.move_left(); }
+            "r" => { tgs.move_right(); }
+            "rl" => { tgs.rotate_left(); }
+            "rr" => { tgs.rotate_right(); }
+            "hd" => { tgs.hard_drop(); }
+            "h" => { tgs.hold(); }
             _ => { println!("unknown command") }
         }
-        print_game_state(&gs);
+        print_timed_game_state(&tgs);
         println!("");
     }
 }
