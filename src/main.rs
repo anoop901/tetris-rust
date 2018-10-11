@@ -96,8 +96,8 @@ fn render_matrix_display(gs: &tetris::game_state::GameState) -> prettytable::Tab
 
     let mut matrix_display: String = String::new();
 
-    for ii in 0..tetris::game_state::MATRIX_HEIGHT - 2 {
-        let i = tetris::game_state::MATRIX_HEIGHT - 3 - ii;
+    for ii in 0..tetris::game_state::MATRIX_HEIGHT {
+        let i = tetris::game_state::MATRIX_HEIGHT - 1 - ii;
         matrix_display.push_str(" ");
         for j in 0..tetris::game_state::MATRIX_WIDTH {
             let c = if let Some(/*ref tt*/_) = squares_to_print[j][i] {
@@ -172,17 +172,22 @@ fn main() {
     println!("");
     // TODO: proper error handling
     for line in stdin.lock().lines().map(|l| l.unwrap()) {
-        match line.as_str() {
-            "" => { tgs.advance_time(150); }
-            "l" => { tgs.move_left(); }
-            "r" => { tgs.move_right(); }
-            "rl" => { tgs.rotate_left(); }
-            "rr" => { tgs.rotate_right(); }
-            "hd" => { tgs.hard_drop(); }
-            "h" => { tgs.hold(); }
-            _ => { println!("unknown command") }
-        }
+        let continue_game = match line.as_str() {
+            "" => { tgs.advance_time(150) }
+            "l" => { tgs.move_left(); true }
+            "r" => { tgs.move_right(); true }
+            "rl" => { tgs.rotate_left(); true }
+            "rr" => { tgs.rotate_right(); true }
+            "hd" => { tgs.hard_drop() }
+            "h" => { tgs.hold(); true }
+            _ => { println!("unknown command"); true }
+        };
         print_timed_game_state(&tgs);
+
+        if !continue_game {
+            println!("GAME OVER");
+            break;
+        }
         println!("");
     }
 }

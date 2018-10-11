@@ -192,26 +192,41 @@ impl GameState {
         self.rotate_to_orientation((old_orientation + 1) % 4)
     }
 
-    pub fn hard_drop(&mut self) {
+    /// Instantly drops the currently falling tetromino on the ground directly below it,
+    /// then spawns the next tetromino. Returns `true` if spawning the next piece was
+    /// successful, or `false` otherwise. A return value of `false` indicates a game over, and
+    /// this `GameState` should not be mutated further after that.
+    pub fn hard_drop(&mut self) -> bool {
         while self.apply_gravity() {}
-        self.lock_piece();
+        self.lock_piece()
     }
 
+    /// Holds the currently falling piece and spawns another to replace it.
+    ///
+    /// If there is already a piece held, that piece will be spawned. If not, the next
+    /// piece in the preview will be spawned. This might fail if there is no space
+    /// to spawn the tetromino, in which case this function will do nothing.
     pub fn hold(&mut self) {
         // TODO: this shouldn't be allowed twice in a row
         let new_held = self.falling_tetromino.ttype.clone();
-        if let Some(ref old_held) = self.held {
-            self.falling_tetromino = Tetromino::new(old_held.clone());
+        let ttype_to_spawn = if let Some(ref old_held) = self.held {
+            old_held.clone()
         } else {
-            Some(self.falling_tetromino.ttype.clone());
-            self.spawn_next_piece();
+            // FIXME: don't pop until we know we can successfully spawn the piece
+            self.pop_next_tetromino_from_preview()
+        };
+        let success = self.spawn_tetromino(ttype_to_spawn);
+
+        if success {
+            self.held = Some(new_held);
         }
-        self.held = Some(new_held);
     }
 
-    /// Locks the currently falling tetromino on the matrix and spawns the next
-    /// tetromino.
-    pub fn lock_piece(&mut self) {
+    /// Locks the currently falling tetromino on the matrix and tries to spawn the next
+    /// tetromino. Returns `true` if spawning the next piece was successful, or
+    /// `false` otherwise. A return value of `false` indicates a game over, and
+    /// this `GameState` should not be mutated further after that.
+    pub fn lock_piece(&mut self) -> bool {
 
         // place tetromino squares on matrix
         self.falling_tetromino.minoes().iter().for_each(|mino_position| {
@@ -220,10 +235,11 @@ impl GameState {
 
         self.clear_lines();
 
-        self.spawn_next_piece();
+        // FIXME: don't pop until we know we can successfully spawn the piece
+        let ttype_to_spawn = self.pop_next_tetromino_from_preview();
+        self.spawn_tetromino(ttype_to_spawn)
 
         // TODO: activate pending garbage lines
-        // TODO: detect game over
     }
 
     // Helpers
@@ -272,13 +288,33 @@ impl GameState {
         }
     }
 
-    fn spawn_next_piece(&mut self) {
-        
+    /// Tries to spawn a tetromino of the given type.
+    ///
+    /// If there is enough space to spawn the tetromino at its spawn point, returns `true` and
+    /// replaces the current tetromino with the new one. Otherwise, returns `false`.
+    fn spawn_tetromino(&mut self, ttype: ::TetrominoType) -> bool {
+
+        let candidate = Tetromino::new(ttype);
+
+        if self.tetromino_fits(&candidate) {
+            // spawn the tetromino
+            self.falling_tetromino = candidate;
+            return true;
+        } else {
+            // no space for spawning tetromino
+            return false;
+        }
+    }
+
+
+    /// Removes a tetromino type from the front of the preview, and adds another from the back
+    /// to the back. Returns the tetromino type that was removed from the front.
+    fn pop_next_tetromino_from_preview(&mut self) -> ::TetrominoType {
         // add a new item to the end of the preview
         self.next_preview.push(self.bag.draw());
-
-        // spawn the next tetromino
-        self.falling_tetromino = Tetromino::new(self.next_preview.remove(0));
+        // TODO: make this more efficient, like with a circular buffer or something
+        // remove first item
+        self.next_preview.remove(0)
     }
 
     fn move_tetromino_if_fits(&mut self, new_center: (isize, isize), new_orientation: u32) -> bool {
@@ -459,12 +495,28 @@ impl TimedGameState {
         r
     }
 
-    pub fn hard_drop(&mut self) {
-        self.game_state.hard_drop();
-        self.time_state.time_to_lock = LOCK_INTERVAL;
+    /// Instantly drops the currently falling tetromino on the ground directly below it,
+    /// then spawns the next tetromino. Returns `true` if spawning the next piece was
+    /// successful, or `false` otherwise. A return value of `false` indicates a game over, and
+    /// this `TimedGameState` should not be mutated further after that.
+    pub fn hard_drop(&mut self) -> bool {
+        let success = self.game_state.hard_drop();
         self.update_time_state();
+
+        if success {
+            self.time_state.time_to_lock = LOCK_INTERVAL;
+            true
+        } else {
+            self.time_state.time_to_lock = 0;
+            false
+        }
     }
 
+    /// Holds the currently falling piece and spawns another to replace it.
+    ///
+    /// If there is already a piece held, that piece will be spawned. If not, the next
+    /// piece in the preview will be spawned. This might fail if there is no space
+    /// to spawn the tetromino, in which case this function will do nothing.
     pub fn hold(&mut self) {
         self.game_state.hold();
         self.time_state.time_to_lock = LOCK_INTERVAL;
@@ -474,8 +526,10 @@ impl TimedGameState {
     // Time-related functions
 
     /// Advance the tetris game by the given number of milliseconds, assuming no inputs are given
-    /// during this period.
-    pub fn advance_time(&mut self, t: u32) {
+    /// during this period. Returns `true` if nothing ended the game in the elapsed time, or
+    /// `false` if something did. A return value of `false` indicates a game over, and
+    /// this `TimedGameState` should not be mutated further after that.
+    pub fn advance_time(&mut self, t: u32) -> bool {
 
         let mut remaining = t;
 
@@ -506,10 +560,14 @@ impl TimedGameState {
                         break;
                     } else {
                         // Lock in time_to_lock milliseconds, spawning next piece
-                        self.game_state.lock_piece();
-
+                        let success = self.game_state.lock_piece();
                         // Handle remaining time in next loop
                         remaining -= self.time_state.time_to_lock;
+
+                        if !success {
+                            self.time_state.time_to_lock = 0;
+                            return false;
+                        }
 
                         // Reset time_to_lock for next piece
                         self.time_state.time_to_lock = LOCK_INTERVAL;
@@ -519,6 +577,8 @@ impl TimedGameState {
 
             self.update_time_state();
         }
+
+        true
     }
 
     /// Adjusts the time state after a change in the game state.
