@@ -1,4 +1,3 @@
-extern crate colored;
 extern crate tetris;
 #[macro_use] extern crate prettytable;
 

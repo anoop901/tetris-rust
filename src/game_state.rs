@@ -1,5 +1,3 @@
-extern crate itertools;
-
 use ::bag;
 use ::tetromino_data;
 
