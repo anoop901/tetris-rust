@@ -1,3 +1,7 @@
 .idea
-/target
+target
 **/*.rs.bk
+/bin
+/www/dist
+/www/node_modules
+/www/pkg

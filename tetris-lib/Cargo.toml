@@ -1,5 +1,5 @@
 [package]
-name = "tetris"
+name = "tetris-lib"
 version = "0.1.0"
 authors = ["Anoop Naravaram <anoop901@gmail.com>"]
 
